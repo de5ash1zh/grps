@@ -1,0 +1,186 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  password    String
+  githubUrl   String?
+  twitterUrl  String?
+  hashnodeUrl String?
+  bio         String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  ownedGroups        Group[]             @relation("UserOwnedGroups")
+  groupMemberships   GroupMember[]
+  membershipRequests MembershipRequest[]
+  noticeboards       NoticeBoard[]
+  activityLogs       ActivityLog[]
+
+  @@map("users")
+}
+
+model Whitelist {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  courseId     String?
+  courseName   String?
+  isRegistered Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@map("whitelist")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  purpose     Purpose
+  maxMembers  Int      @default(4)
+  leaderId    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  leader             User                @relation("UserOwnedGroups", fields: [leaderId], references: [id], onDelete: Cascade)
+  members            GroupMember[]
+  membershipRequests MembershipRequest[]
+  noticeboards       NoticeBoard[]
+  activityLogs       ActivityLog[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id            String       @id @default(cuid())
+  groupId       String
+  userId        String
+  joinDate      DateTime     @default(now())
+  status        MemberStatus @default(ACTIVE)
+  removalReason String?
+  leaveReason   String?
+  createdAt     DateTime     @default(now())
+
+  // Relations
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+model MembershipRequest {
+  id              String        @id @default(cuid())
+  groupId         String
+  userId          String
+  message         String
+  status          RequestStatus @default(PENDING)
+  responseMessage String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  expiresAt       DateTime      @default(dbgenerated("NOW() + INTERVAL '7 days'"))
+
+  // Relations
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("membership_requests")
+}
+
+model NoticeBoard {
+  id        String     @id @default(cuid())
+  groupId   String
+  authorId  String
+  title     String
+  content   String
+  type      NoticeType
+  isPinned  Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("notice_board")
+}
+
+model ActivityLog {
+  id         String     @id @default(cuid())
+  userId     String
+  groupId    String?
+  actionType ActionType
+  message    String
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+// Enums
+
+enum Purpose {
+  LEARNING
+  PROJECT
+  DISCUSSION
+  NETWORKING
+  OTHER
+}
+
+enum MemberStatus {
+  ACTIVE
+  REMOVED
+  LEFT
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum NoticeType {
+  MEETING
+  ANNOUNCEMENT
+  RESOURCE
+  DISCUSSION
+}
+
+enum ActionType {
+  USER_REGISTERED
+  USER_VERIFIED
+  GROUP_CREATED
+  GROUP_DELETED
+  JOIN_REQUEST_SENT
+  JOIN_REQUEST_APPROVED
+  JOIN_REQUEST_REJECTED
+  MEMBER_REMOVED
+  MEMBER_LEFT
+  NOTICE_POSTED
+  NOTICE_UPDATED
+  NOTICE_DELETED
+}
