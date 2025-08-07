@@ -1,4 +1,4 @@
-# ChaiCode Groups - Beginner-Friendly Detailed Implementation Guide
+#  Implementation Guide
 
 ## Understanding the Tech Stack First
 
